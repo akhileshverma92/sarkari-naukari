@@ -6,6 +6,7 @@ import { getCurrentUser, isAdminUser } from '@/lib/firebase/server'
 import {
   addSourceAndFetch,
   publishCandidateById,
+  runDailyAutomationPipeline,
   runDiscoveryJob,
   runProcessCandidatesJob,
   runUpdateJobStatusJob,
@@ -24,6 +25,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const actionSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('run_full_pipeline') }),
   z.object({ action: z.literal('run_discover') }),
   z.object({ action: z.literal('run_process') }),
   z.object({ action: z.literal('retry_failed') }),
@@ -206,7 +208,9 @@ export async function POST(request: Request) {
   const payload = parsed.data
   try {
     let result: unknown = { ok: true }
-    if (payload.action === 'run_discover') {
+    if (payload.action === 'run_full_pipeline') {
+      result = await runDailyAutomationPipeline(true)
+    } else if (payload.action === 'run_discover') {
       result = await runDiscoveryJob(true)
     } else if (payload.action === 'run_process') {
       result = await runProcessCandidatesJob(true, false)

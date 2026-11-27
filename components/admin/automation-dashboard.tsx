@@ -246,8 +246,21 @@ export function AutomationDashboard({
             <h2 className="mt-1 text-base font-bold text-[#1b3150]">
               Paste a recruitment website or job link to scrape
             </h2>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Vercel Hobby Cron runs daily at 02:00 UTC (<code>/api/cron/run-automation</code>).
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              disabled={busyKey !== null || !envStatus.firebaseAdmin}
+              onClick={() => runAction({ action: 'run_full_pipeline' }, 'Full automation pipeline')}
+              className="bg-[#171717] text-white hover:bg-stone-800"
+            >
+              <Play className="h-3.5 w-3.5" />
+              {busyKey === 'run_full_pipeline' ? 'Running…' : 'Run Daily Pipeline Now'}
+            </Button>
             <Button
               type="button"
               variant="outline"

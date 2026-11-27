@@ -755,3 +755,94 @@ export async function publishCandidateById(candidateId: string) {
 
   return { jobId: result.jobId, slug: result.slug ?? normalized.data.slug }
 }
+
+export async function runDailyAutomationPipeline(force = false) {
+  const startedAt = new Date().toISOString()
+  const startMs = Date.now()
+  const TIME_BUDGET_MS = 42_000
+  const settings = await getAutomationSettings()
+
+  if (!settings.enabled && !force) {
+    return { status: 'disabled', summary: 'Automation is disabled.' }
+  }
+
+  const locked = await acquireExecutionLock('daily_automation_pipeline', 4 * 60 * 1000)
+  if (!locked) {
+    await writeScrapingLog({
+      jobType: 'process',
+      status: 'skipped_locked',
+      summary: 'Skipped daily automation because another pipeline run is active.',
+      metrics: {},
+      error: null,
+      startedAt,
+      completedAt: new Date().toISOString(),
+      durationMs: Date.now() - startMs,
+    })
+    return { status: 'locked' }
+  }
+
+  try {
+    // 1. Mark expired published jobs as closed (fast Firestore query)
+    const statusResult = await runUpdateJobStatusJob()
+
+    // 2. Discover new recruitment URLs via Firecrawl (if within time budget)
+    const discoveryResult =
+      Date.now() - startMs < TIME_BUDGET_MS
+        ? await runDiscoveryJob(force)
+        : { status: 'skipped_budget', discovered: 0, skipped: 0 }
+
+    // 3. Process pending candidates in a bounded batch (scrape -> Cloudflare AI -> verify -> deduplicate -> Firestore)
+    const processResult =
+      Date.now() - startMs < TIME_BUDGET_MS
+        ? await runProcessCandidatesJob(force, false)
+        : { status: 'skipped_budget', processed: 0, published: 0, candidatesSaved: 0, duplicates: 0, failed: 0 }
+
+    // 4. Verify a small batch of existing published jobs if budget remains
+    const verifyResult =
+      Date.now() - startMs < TIME_BUDGET_MS
+        ? await runVerifyJobsJob(force)
+        : { status: 'skipped_budget', checked: 0, updated: 0 }
+
+    const summary = `Daily pipeline: closed=${statusResult.closedCount}, discovered=${discoveryResult.discovered}, processed=${processResult.processed}, published=${processResult.published}, verified=${verifyResult.checked}`
+
+    await writeScrapingLog({
+      jobType: 'process',
+      status: 'completed',
+      summary,
+      metrics: {
+        closedCount: statusResult.closedCount,
+        discovered: discoveryResult.discovered,
+        processed: processResult.processed,
+        published: processResult.published,
+        verifiedChecked: verifyResult.checked,
+      },
+      error: null,
+      startedAt,
+      completedAt: new Date().toISOString(),
+      durationMs: Date.now() - startMs,
+    })
+
+    return {
+      status: 'completed',
+      statusResult,
+      discoveryResult,
+      processResult,
+      verifyResult,
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Daily pipeline failed'
+    await writeScrapingLog({
+      jobType: 'process',
+      status: 'failed',
+      summary: 'Daily automation pipeline failed.',
+      metrics: {},
+      error: message,
+      startedAt,
+      completedAt: new Date().toISOString(),
+      durationMs: Date.now() - startMs,
+    })
+    throw err
+  } finally {
+    await releaseExecutionLock('daily_automation_pipeline')
+  }
+}
