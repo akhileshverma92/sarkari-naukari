@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'akkupatel055@gmail.com' ||
+        exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
+      );
+    }
+
+    match /organizations/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /states/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /job_categories/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /qualifications/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /jobs/{id} {
+      allow read: if resource.data.status in ['published', 'closed'] || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /saved_jobs/{id} {
+      allow read, delete: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update: if isAdmin();
+    }
+
+    match /admin_users/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if isAdmin();
+    }
+
+    match /admin_activity_logs/{id} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
