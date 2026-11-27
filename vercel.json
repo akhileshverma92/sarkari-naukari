@@ -1,19 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron/discover-jobs",
-      "schedule": "0 */6 * * *"
-    },
-    {
-      "path": "/api/cron/process-candidates",
-      "schedule": "*/30 * * * *"
-    },
-    {
-      "path": "/api/cron/verify-jobs",
-      "schedule": "0 */12 * * *"
-    },
-    {
-      "path": "/api/cron/update-job-status",
+      "path": "/api/cron/run-automation",
       "schedule": "0 2 * * *"
     }
   ]
