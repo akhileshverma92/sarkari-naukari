@@ -44,3 +44,4 @@ Install dependencies with the package manager in `package.json`, then run the `d
 - Follow-up work: friendlier repeatable fee/vacancy row controls, taxonomy editing/deletion, duplicate and bulk actions, views analytics, dedicated answer-key/syllabus tables and workflows, admin management of sources/review queue/admit cards/results, email alerts, and automated ingestion. No fabricated active recruitment data is included.
 - Supabase Auth and RLS are connected. Notification PDF storage is restricted to administrators for uploads. This MVP has not been audited for production compliance and should receive a security review before broad public launch.
 # sarkari-naukari
+# sarkari-naukari
